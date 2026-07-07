@@ -6,58 +6,64 @@ library(shiny)
 library(leaflet)
 library(scales)
 library(here)
-library(rio)
 library(sf)
 library(tidyverse)
 
 # ---- Data ---------------------------------------------------------------
 
-hike <- read.csv(here("data", "mileage_clean.csv"), stringsAsFactors = FALSE) %>%
+hike <- read_csv(here("data", "mileage_clean.csv"), show_col_types = FALSE) %>%
   mutate(date = mdy(date)) %>%
   arrange(night)
 
-map_washington <- readRDS(here("data", "maps", "washington.rds"))
-map_oregon     <- readRDS(here("data", "maps", "oregon.rds"))
-map_norcal     <- readRDS(here("data", "maps", "norcal.rds"))
-map_sierra     <- readRDS(here("data", "maps", "sierra.rds"))
-map_socal      <- readRDS(here("data", "maps", "socal.rds"))
-map_full       <- readRDS(here("data", "maps", "full_pct.rds"))
+map_washington <- readRDS(here("data", "maps", "Washington.shp", "washington.rds"))
+map_oregon     <- readRDS(here("data", "maps", "Oregon.shp", "oregon.rds"))
+map_norcal     <- readRDS(here("data", "maps", "Northern_California.shp", "norcal.rds"))
+map_sierra     <- readRDS(here("data", "maps", "Central_California.shp", "sierra.rds"))
+map_socal      <- readRDS(here("data", "maps", "Southern_California.shp", "socal.rds"))
+map_full       <- readRDS(here("data", "maps", "full_pct", "full_pct.rds"))
 
 
 # ---- Region assignment ---------------------------------------------------
 #
-# `mile` is the PCT mile marker (measured from the Mexican border) at each
-# night's camp. One known data quirk: the Ashland zero-day row records
-# `mile` as 0 instead of the real trail position, so we null that out and
-# carry the previous real position forward before splitting into regions.
+# Each night's camp is assigned to whichever regional shapefile its GPS
+# coordinates fall closest to, using a spatial nearest-shapefile join
+# (st_distance) rather than mileage thresholds. This hike was SOBO, and the
+# `mile` column counts distance traveled from the Canadian border -- it is
+# not the standard Halfmile mile-marker convention (measured from the
+# Mexican border), so mile-threshold logic silently misassigns nights.
+# Spatial distance to the actual regional boundary polygons sidesteps that
+# mismatch entirely.
 #
-# These breakpoints are the standard/"Halfmile" reference mileposts for the
-# state divisions. Actual reroutes shift them a mile or two in some years --
-# nudge these if your data disagrees with where a border night lands.
-
-pct_region_breaks <- c(
-  "Southern California" = 0,
-  "Sierra"               = 702.2,
-  "Northern California"  = 1016.9,
-  "Oregon"               = 1698.9,
-  "Washington"           = 2151.4
-)
+# Nights with no GPS recorded (e.g. the Ashland zero-day) inherit the
+# region of the nearest night on trail, before and after, in trail order.
 
 region_levels <- c("Washington", "Oregon", "Northern California", "Sierra", "Southern California")
 
+region_shapes <- list(
+  "Washington"           = map_washington,
+  "Oregon"               = map_oregon,
+  "Northern California"  = map_norcal,
+  "Sierra"               = map_sierra,
+  "Southern California"  = map_socal
+)
+
+hike_pts <- hike %>%
+  filter(!is.na(lat), !is.na(lon)) %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE) %>%
+  st_transform(st_crs(map_washington))
+
+region_distances <- region_shapes %>%
+  map(~ apply(st_distance(hike_pts, .x), 1, min)) %>%
+  as_tibble()
+
+hike_pts <- hike_pts %>%
+  mutate(region = region_distances %>% pmap_chr(~ names(region_distances)[which.min(c(...))]))
+
 hike <- hike %>%
-  mutate(mile = na_if(mile, 0)) %>%
-  fill(mile, .direction = "down") %>%
-  mutate(
-    region = case_when(
-      mile >= pct_region_breaks["Washington"]          ~ "Washington",
-      mile >= pct_region_breaks["Oregon"]               ~ "Oregon",
-      mile >= pct_region_breaks["Northern California"]  ~ "Northern California",
-      mile >= pct_region_breaks["Sierra"]               ~ "Sierra",
-      TRUE                                               ~ "Southern California"
-    ),
-    region = factor(region, levels = region_levels)
-  ) %>%
+  left_join(hike_pts %>% st_drop_geometry() %>% select(night, region), by = "night") %>%
+  arrange(night) %>%
+  fill(region, .direction = "downup") %>%
+  mutate(region = factor(region, levels = region_levels)) %>%
   group_by(region) %>%
   mutate(
     region_cum_miles   = cumsum(replace_na(miles_completed, 0)),
@@ -158,8 +164,7 @@ sectionUI <- function(id, title, subtitle, cum_label) {
                      div(style = "font-size: 12px; opacity: 0.85;", "ft descent")
               )
             )
-        ),
-        uiOutput(ns("notesUI"))
+        )
       )
     )
   )
@@ -171,6 +176,7 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
     data_geo   <- data %>% filter(!is.na(lat), !is.na(lon))
     min_n      <- min(data$night)
     max_n      <- max(data$night)
+    trail_bbox <- full_trail %>% st_transform(4326) %>% st_bbox()
 
     output$slider <- renderUI({
       sliderInput(
@@ -211,15 +217,6 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
     output$cumAscent  <- renderText({ comma(selectedRow()[[cum_cols$ascent]]) })
     output$cumDescent <- renderText({ comma(selectedRow()[[cum_cols$descent]]) })
 
-    output$notesUI <- renderUI({
-      row <- selectedRow()
-      if (!is.null(row$notes) && nzchar(trimws(row$notes))) {
-        div(class = "notes-box", paste0("\u201c", row$notes, "\u201d"))
-      } else {
-        NULL
-      }
-    })
-
     output$map <- renderLeaflet({
       leaflet(data_geo) %>%
         addProviderTiles(providers$CartoDB.Positron, group = "Map") %>%
@@ -241,8 +238,8 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
           position = "topright"
         ) %>%
         fitBounds(
-          lng1 = min(data_geo$lon), lat1 = min(data_geo$lat),
-          lng2 = max(data_geo$lon), lat2 = max(data_geo$lat)
+          lng1 = trail_bbox[["xmin"]], lat1 = trail_bbox[["ymin"]],
+          lng2 = trail_bbox[["xmax"]], lat2 = trail_bbox[["ymax"]]
         )
     })
 
@@ -280,24 +277,25 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
 # ---- Section definitions --------------------------------------------------
 
 sections <- tibble::tribble(
-  ~id,          ~title,                                    ~region,                ~nav_bg,        ~nav_text,
-  "whole",      "Pacific Crest Trail \u2014 2025 Thru-Hike", NA_character_,          forest_mid,     "#f4f7f3",
-  "washington", "Washington",                                "Washington",           forest_light,   "#1b3a2b",
-  "oregon",     "Oregon",                                    "Oregon",               "#2a211d",      "#f4f7f3",
-  "norcal",     "Northern California",                       "Northern California",  "#c1502e",      "#f4f7f3",
-  "sierra",     "Sierra",                                    "Sierra",               "#dbeef4",      "#1b3a2b",
-  "socal",      "Southern California",                       "Southern California",  bark_brown,     "#f4f7f3"
+  ~id,          ~title,                                    ~region,                ~nav_bg,        ~nav_text,      ~nav_icon,
+  "whole",      "Pacific Crest Trail \u2014 2025 Thru-Hike", NA_character_,          forest_mid,     "#f4f7f3",      "route",
+  "washington", "Washington",                                "Washington",           forest_light,   "#1b3a2b",      "mountain",
+  "oregon",     "Oregon",                                    "Oregon",               "#2a211d",      "#f4f7f3",      "tree",
+  "norcal",     "Northern California",                       "Northern California",  "#c1502e",      "#f4f7f3",      "water",
+  "sierra",     "Sierra",                                    "Sierra",               "#dbeef4",      "#1b3a2b",      "snowflake",
+  "socal",      "Southern California",                       "Southern California",  bark_brown,     "#f4f7f3",      "sun"
 )
 
 topNavUI <- function(active_id) {
   div(class = "top-nav",
-      purrr::pmap(sections, function(id, title, region, nav_bg, nav_text, ...) {
+      purrr::pmap(sections, function(id, title, region, nav_bg, nav_text, nav_icon, ...) {
         tags$a(
           href = paste0("#section-", id),
           class = paste("nav-box", if (id == active_id) "active" else ""),
           `data-target` = id,
           style = sprintf("background-color: %s; color: %s;", nav_bg, nav_text),
-          title
+          div(class = "nav-box-icon", icon(nav_icon)),
+          span(class = "nav-box-label", title)
         )
       })
   )
@@ -328,6 +326,18 @@ cum_cols_for <- function(region) {
   } else {
     list(miles = "region_cum_miles", ascent = "region_cum_ascent", descent = "region_cum_descent")
   }
+}
+
+region_maps <- list(
+  "Washington"           = map_washington,
+  "Oregon"               = map_oregon,
+  "Northern California"  = map_norcal,
+  "Sierra"               = map_sierra,
+  "Southern California"  = map_socal
+)
+
+map_for_region <- function(region) {
+  if (is.na(region)) map_full else pluck(region_maps, region, .default = map_full)
 }
 
 # ---- UI -------------------------------------------------------------------
@@ -481,15 +491,6 @@ ui <- fluidPage(
         color: #6b8577;
         margin-bottom: 14px;
       }
-      .notes-box {
-        background-color: %s;
-        border-radius: 10px;
-        padding: 14px 16px;
-        font-size: 13px;
-        font-style: italic;
-        color: #3c4a41;
-        border-left: 4px solid %s;
-      }
       .irs-bar, .irs-bar-edge, .irs-single, .irs-from, .irs-to {
         background: %s !important;
         border-color: %s !important;
@@ -506,6 +507,8 @@ ui <- fluidPage(
         width: 100%%;
       }
       .nav-box {
+        position: relative;
+        overflow: hidden;
         flex: 1 1 0;
         min-width: 0;
         height: 64px;
@@ -523,6 +526,24 @@ ui <- fluidPage(
         cursor: pointer;
         text-decoration: none;
         transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+      }
+      .nav-box-icon {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 34px;
+        opacity: 0.28;
+        pointer-events: none;
+      }
+      .nav-box-icon svg {
+        width: 1em;
+        height: 1em;
+      }
+      .nav-box-label {
+        position: relative;
+        z-index: 2;
       }
       .nav-box:hover {
         transform: scale(1.03);
@@ -542,8 +563,6 @@ ui <- fluidPage(
                             lake_blue,
                             sky_blue,
                             forest_dark,
-                            "#e8f0ea",
-                            forest_light,
                             forest_mid, forest_mid,
                             card_bg
     )))
@@ -599,7 +618,7 @@ server <- function(input, output, session) {
     sectionServer(
       id         = id,
       data       = data_for(region),
-      full_trail = map_full,
+      full_trail = map_for_region(region),
       cum_cols   = cum_cols_for(region)
     )
   })
