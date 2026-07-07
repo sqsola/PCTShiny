@@ -2,7 +2,13 @@
 ## PCT 2025 Thru-Hike Dashboard
 ########################################################
 
-pacman::p_load(shiny, leaflet, scales, here, rio, sf, tidyverse)
+library(shiny)
+library(leaflet)
+library(scales)
+library(here)
+library(rio)
+library(sf)
+library(tidyverse)
 
 # ---- Data ---------------------------------------------------------------
 
@@ -10,28 +16,12 @@ hike <- read.csv(here("data", "mileage_clean.csv"), stringsAsFactors = FALSE) %>
         mutate(date = mdy(date)) %>%
         arrange(night)
 
-map_washington <- read_sf(here("data", "maps", 
-                               "Washington.shp", "Washington.shp")) %>%
-                  st_zm()
-
-map_oregon <- read_sf(here("data", "maps", 
-                               "Oregon.shp", "Oregon.shp")) %>%
-                  st_zm()
-
-map_norcal <- read_sf(here("data", "maps", 
-                               "Northern_California.shp", "Northern_California.shp")) %>%
-                  st_zm()
-
-map_sierra <- read_sf(here("data", "maps", 
-                               "Central_California.shp", "Central_California.shp")) %>%
-                  st_zm()
-
-map_socal <- read_sf(here("data", "maps", 
-                               "Southern_California.shp", "Southern_California.shp")) %>%
-                  st_zm()
-
-map_full <- read_sf(here("data", "maps", "full_pct", "Full_PCT.shp")) %>%
-                  st_zm()
+map_washington <- readRDS(here("data", "maps", "Washington.shp", "washington.rds"))
+map_oregon     <- readRDS(here("data", "maps", "Oregon.shp", "oregon.rds"))
+map_norcal     <- readRDS(here("data", "maps", "Northern_California.shp", "norcal.rds"))
+map_sierra     <- readRDS(here("data", "maps", "Central_California.shp", "sierra.rds"))
+map_socal      <- readRDS(here("data", "maps", "Southern_California.shp", "socal.rds"))
+map_full       <- readRDS(here("data", "maps", "full_pct", "full_pct.rds"))
 
 # Look up the trail overlay for a given section. The "whole" section
 # (region == NA) gets the full PCT; each named region gets just its own
