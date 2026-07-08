@@ -131,7 +131,12 @@ sectionUI <- function(id, title, subtitle, cum_label) {
         width = 5,
         class = "stats-col",
         wellPanel(
-          uiOutput(ns("slider"))
+          uiOutput(ns("slider")),
+          fluidRow(
+            class = "day-nav-row",
+            column(6, actionButton(ns("prevDay"), tagList(icon("angle-left"), "Previous Day"), class = "day-nav-btn")),
+            column(6, actionButton(ns("nextDay"), tagList("Next Day", icon("angle-right")), class = "day-nav-btn"))
+          )
         ),
         uiOutput(ns("nightHeader")),
         fluidRow(
@@ -152,16 +157,16 @@ sectionUI <- function(id, title, subtitle, cum_label) {
             h4(cum_label),
             fluidRow(
               column(4,
-                     div(style = "font-size: 24px; font-weight: 700;", textOutput(ns("cumMiles"), inline = TRUE)),
-                     div(style = "font-size: 12px; opacity: 0.85;", "miles hiked")
+                     div(style = "font-size: 30px; font-weight: 700;", textOutput(ns("cumMiles"), inline = TRUE)),
+                     div(style = "font-size: 14px; opacity: 0.85;", "miles hiked")
               ),
               column(4,
-                     div(style = "font-size: 24px; font-weight: 700;", textOutput(ns("cumAscent"), inline = TRUE)),
-                     div(style = "font-size: 12px; opacity: 0.85;", "ft ascent")
+                     div(style = "font-size: 30px; font-weight: 700;", textOutput(ns("cumAscent"), inline = TRUE)),
+                     div(style = "font-size: 14px; opacity: 0.85;", "ft ascent")
               ),
               column(4,
-                     div(style = "font-size: 24px; font-weight: 700;", textOutput(ns("cumDescent"), inline = TRUE)),
-                     div(style = "font-size: 12px; opacity: 0.85;", "ft descent")
+                     div(style = "font-size: 30px; font-weight: 700;", textOutput(ns("cumDescent"), inline = TRUE)),
+                     div(style = "font-size: 14px; opacity: 0.85;", "ft descent")
               )
             )
         )
@@ -194,6 +199,16 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
     selectedRow <- reactive({
       req(input$night)
       data %>% filter(night == input$night)
+    })
+
+    observeEvent(input$prevDay, {
+      req(input$night)
+      updateSliderInput(session, "night", value = max(min_n, input$night - 1))
+    })
+
+    observeEvent(input$nextDay, {
+      req(input$night)
+      updateSliderInput(session, "night", value = min(max_n, input$night + 1))
     })
 
     output$nightHeader <- renderUI({
@@ -389,13 +404,13 @@ ui <- fluidPage(
       }
       .app-header h1 {
         margin: 0;
-        font-size: 30px;
+        font-size: 38px;
         font-weight: 700;
         letter-spacing: 0.5px;
       }
       .app-header p {
-        margin: 6px 0 0 0;
-        font-size: 14px;
+        margin: 8px 0 0 0;
+        font-size: 17px;
         color: %s;
       }
       .content-row {
@@ -432,6 +447,38 @@ ui <- fluidPage(
       .stats-col .well {
         margin-bottom: 0;
       }
+      .day-nav-row {
+        margin-top: 14px;
+        margin-left: -6px;
+        margin-right: -6px;
+      }
+      .day-nav-row > div {
+        padding-left: 6px;
+        padding-right: 6px;
+      }
+      .day-nav-btn {
+        width: 100%%;
+        background-color: %s;
+        color: #f4f7f3;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 10px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: filter 0.15s ease, transform 0.15s ease;
+      }
+      .day-nav-btn:hover {
+        filter: brightness(1.12);
+        color: #f4f7f3;
+      }
+      .day-nav-btn:active {
+        transform: translateY(1px);
+      }
+      .day-nav-btn:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(47,107,79,0.35);
+      }
       .stat-row {
         margin-left: -8px;
         margin-right: -8px;
@@ -451,19 +498,19 @@ ui <- fluidPage(
       }
       .stat-card h4 {
         margin: 0 0 8px 0;
-        font-size: 12px;
+        font-size: 14px;
         text-transform: uppercase;
         letter-spacing: 0.8px;
         color: %s;
         font-weight: 700;
       }
       .stat-card .stat-value {
-        font-size: 24px;
+        font-size: 30px;
         font-weight: 700;
         color: %s;
       }
       .stat-card .stat-sub {
-        font-size: 12px;
+        font-size: 14px;
         color: #6b8577;
         margin-top: 3px;
       }
@@ -475,19 +522,19 @@ ui <- fluidPage(
       }
       .cumulative-box h4 {
         margin: 0 0 14px 0;
-        font-size: 13px;
+        font-size: 16px;
         text-transform: uppercase;
         letter-spacing: 0.8px;
         color: %s;
       }
       .location-name {
-        font-size: 19px;
+        font-size: 26px;
         font-weight: 700;
         color: %s;
         margin-top: 4px;
       }
       .location-date {
-        font-size: 13px;
+        font-size: 16px;
         color: #6b8577;
         margin-bottom: 14px;
       }
@@ -500,6 +547,14 @@ ui <- fluidPage(
         border: none;
         padding: 20px;
       }
+      .well label {
+        font-size: 17px;
+        font-weight: 600;
+      }
+      .irs--shiny .irs-min, .irs--shiny .irs-max,
+      .irs--shiny .irs-from, .irs--shiny .irs-to, .irs--shiny .irs-single {
+        font-size: 13px;
+      }
       .top-nav {
         display: flex;
         gap: 14px;
@@ -511,7 +566,7 @@ ui <- fluidPage(
         overflow: hidden;
         flex: 1 1 0;
         min-width: 0;
-        height: 64px;
+        height: 72px;
         box-sizing: border-box;
         border-radius: 10px;
         border: 2px solid rgba(0,0,0,0.15);
@@ -519,7 +574,7 @@ ui <- fluidPage(
         align-items: center;
         justify-content: center;
         text-align: center;
-        font-size: 12px;
+        font-size: 15px;
         font-weight: 700;
         line-height: 1.25;
         padding: 6px;
@@ -533,7 +588,7 @@ ui <- fluidPage(
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 34px;
+        font-size: 38px;
         opacity: 0.28;
         pointer-events: none;
       }
@@ -557,6 +612,7 @@ ui <- fluidPage(
                             panel_bg, text_dark,
                             forest_dark, forest_mid, lake_blue,
                             sky_blue,
+                            forest_mid,
                             card_bg, forest_mid,
                             forest_mid,
                             forest_dark,
