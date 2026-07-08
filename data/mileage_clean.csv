@@ -1,5 +1,5 @@
 night,date,name,mile,miles_completed,ascent,descent,lat,lon,cum_miles,cum_ascent,cum_descent
-0,7/3/2025,Lions Den Mazama,2625.2,0,0,0,,,0,0,0
+0,7/3/2025,Lions Den Mazama,2625.2,0,0,0,48.58565,-120.40828,0,0,0
 1,7/4/2025,Elk Bugle Campground,2641.1,15.9,3222,3199,48.85803,-120.7439,15.9,3222,3199
 2,7/5/2025,Woody Pass,11.1,25.8,5082,4676,48.88487,-120.76591,41.7,8304,7875
 3,7/6/2025,Foggy Pass,23.5,12.4,2605,2936,48.78225,-120.73084,54.1,10909,10811
