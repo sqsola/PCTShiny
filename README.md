@@ -4,7 +4,7 @@ An interactive R Shiny dashboard visualizing a 2025 southbound (SOBO) thru-hike 
 
 Built with Shiny + Leaflet, the app lets you scroll through six sections (Whole PCT, Washington, Oregon, Northern California, Sierra, Southern California), each with its own regional map, night-by-night slider, and daily/cumulative mileage, ascent, and descent stats.
 
-**Live app:** _add your Posit Connect Cloud URL here_
+[Live app](https://connect.posit.cloud/ssola/content/019f3a8d-e5ac-e0f4-0215-7ce42cf4a7aa)
 
 ## Features
 
@@ -22,13 +22,17 @@ Built with Shiny + Leaflet, the app lets you scroll through six sections (Whole 
 ## Data
 
 - `data/mileage_clean.csv` — one row per night on trail: date, camp name, GPS coordinates, miles hiked, ascent, descent, and trail mile marker
-- `data/mileage.xlsx` — the raw source spreadsheet
-- `prepare_data.py` — regenerates `mileage_clean.csv` from `mileage.xlsx` whenever hike data is updated
-- `data/maps/` — regional shapefiles (Washington, Oregon, Northern California, Sierra, Southern California) plus a full-trail shapefile, used both for map rendering and for spatially assigning each night to its region
+  - Source: Personal recordings while hiking the trail
+- `data/maps/region` — regional shapefiles (Washington, Oregon, Northern California, Sierra, Southern California) plus a full-trail shapefile, used both for map rendering and for spatially assigning each night to its region
+  - Source: [PCTA Data Share](https://pcta.app.box.com/s/wsv09z18lw4kwptjrxd79kj07xm6ufsr/folder/305401696682?page=2&sortColumn=name&sortDirection=ASC)
+- `data/maps/boundary_forest` — National Forests shapefile
+  - Source: [USDA Forest Service Dataset Warehouse](https://data.fs.usda.gov/geodata/edw/datasets.php?dsetCategory=boundaries)
+- `data/maps/boundary_park` — National Forests shapefile
+  - Source: [Bureau of Transportation Statistics ArcGIS Online](https://geodata.bts.gov/datasets/usdot::national-parks)
 
 ### Region assignment
 
-Because this was a SOBO hike, the raw `mile` column counts distance from the Canadian border (not the standard Halfmile convention measured from the Mexican border), and the first two nights use a different reference point. Rather than relying on mileage thresholds, each night's GPS coordinates are spatially joined to the nearest regional shapefile boundary (`sf::st_distance()`) to determine its region. Nights with no GPS recorded (e.g. a zero day) inherit the region of the nearest recorded night in trail order.
+Because this was a SOBO hike, the raw `mile` column counts distance from the Canadian border (not the standard Halfmile convention measured from the Mexican border).
 
 ## Tech stack
 
