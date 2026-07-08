@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 night,date,name,mile,miles_completed,ascent,descent,lat,lon,cum_miles,cum_ascent,cum_descent
 0,7/3/2025,Lions Den Mazama,2625.2,0,0,0,48.58565,-120.40828,0,0,0
 1,7/4/2025,Elk Bugle Campground,2641.1,15.9,3222,3199,48.85803,-120.7439,15.9,3222,3199
@@ -260,4 +259,3 @@ night,date,name,mile,miles_completed,ascent,descent,lat,lon,cum_miles,cum_ascent
 126,11/6/2025,Unnamed campsite,2448,27.7,2165,7090,33.90442,-116.6847,2006.9,338945,337733
 127,11/7/2025,Fuller Ridge Campground,2465.4,17.4,6788,249,33.83897,-116.73612,2024.3,345733,337982
 128,11/8/2025,Idyllwild,2472.3,6.9,1844,1539,33.78305,-116.7041,2031.2,347577,339521
->>>>>>> 24fc12d4ded9fbae463adfdc07ba21323e7503e7
