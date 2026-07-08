@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?><metadata>
+    <idinfo>
+        <citation>
+            <citeinfo>
+                <origin/>
+                <title>National Parks</title>
+                <geoform>vector digital data</geoform>
+                <lworkcit>
+                    <citeinfo>
+                        <origin/>
+                        <pubdate>20260130</pubdate>
+                        <title>National Transportation Atlas Database</title>
+                    </citeinfo>
+                </lworkcit>
+            </citeinfo>
+        </citation>
+        <descript>
+            <abstract>The National Parks dataset is frequently updated by the National Park Service (NPS) and is part of the U.S. Department of Transportation (USDOT)/Bureau of Transportation Statistics (BTS) National Transportation Atlas Database (NTAD). This dataset depicts National Park Service boundary data that was created by the Land Resources Division. NPS Director's Order #25 states: "Land status maps will be prepared to identify the ownership of the lands within the authorized boundaries of the park unit. These maps, showing ownership and acreage, are the 'official record' of the acreage of Federal and non-federal lands within the park boundaries. While these maps are the official record of the lands and acreage within the unit's authorized boundaries, they are not of survey quality and not intended to be used for survey purposes." As such this data is intended for use as a tool for GIS analysis. It is in no way intended for engineering or legal purposes. For the full data description, please go to https://irma.nps.gov/DataStore/Reference/Profile/2224545?lnv=True. A data dictionary, or other source of attribute information, is accessible at https://doi.org/10.21949/1529046</abstract>
+            <purpose>This service depicts National Park Service boundary data that was created by the Land Resources Division. The data is intended for use as a tool for display and general GIS analysis purposes only.</purpose>
+        </descript>
+        <timeperd>
+            <timeinfo>
+                <sngdate>
+                    <caldate>20260120</caldate>
+                </sngdate>
+            </timeinfo>
+            <current>Unknown</current>
+        </timeperd>
+        <status>
+            <progress>In work</progress>
+            <update>Quarterly</update>
+        </status>
+        <spdom>
+            <bounding>
+                <westbc>-169.448847938056</westbc>
+                <eastbc>145.724001590056</eastbc>
+                <northbc>67.8585086293165</northbc>
+                <southbc>-14.24883923958</southbc>
+            </bounding>
+        </spdom>
+        <keywords>
+            <theme>
+                <themekt>ISO 19115 Topic Category</themekt>
+                <themekey>boundaries</themekey>
+            </theme>
+            <theme>
+                <themekt>None</themekt>
+                <themekey>NTAD</themekey>
+                <themekey>National Transportation Atlas Database</themekey>
+                <themekey>National</themekey>
+                <themekey>Transportation</themekey>
+                <themekey>Atlas</themekey>
+                <themekey>Database</themekey>
+                <themekey>vector</themekey>
+                <themekey>polygon</themekey>
+                <themekey>Administrative</themekey>
+                <themekey>Boundary</themekey>
+                <themekey>Park</themekey>
+                <themekey>National Parks</themekey>
+                <themekey>NPS</themekey>
+                <themekey>Service</themekey>
+                <themekey>Land Resources Division</themekey>
+                <themekey>Tracts</themekey>
+            </theme>
+            <place>
+                <placekt>None</placekt>
+                <placekey>USA</placekey>
+                <placekey>National</placekey>
+            </place>
+        </keywords>
+        <accconst>None</accconst>
+        <useconst>This NTAD dataset is a work of the United States government as defined in 17 U.S.C. § 101 and as such are not protected by any U.S. copyrights. This work is available for unrestricted public use.</useconst>
+        <ptcontac>
+            <cntinfo>
+                <cntorgp>
+                    <cntorg>National Park Service (NPS)</cntorg>
+                    <cntper>National Park Service Land Resources Division</cntper>
+                </cntorgp>
+                <cntpos>Chief Cartographer</cntpos>
+                <cntaddr>
+                    <addrtype>mailing and physical</addrtype>
+                    <address>301 S. Howes Street, Suite 208</address>
+                    <city>Fort Collins</city>
+                    <state>CO</state>
+                    <postal>80521</postal>
+                    <country>United States</country>
+                </cntaddr>
+                <cntvoice>202-366-3282</cntvoice>
+                <cntemail>PPFL_LandsNet@nps.gov</cntemail>
+            </cntinfo>
+        </ptcontac>
+        <datacred>Acknowledgment of the National Park Service (NPS) and the Bureau of Transportation Statistics (BTS) [distributor].</datacred>
+        <native>Version 6.2 (Build 9200) ; Esri ArcGIS 10.8.1.14362</native>
+    </idinfo>
+    <dataqual>
+        <complete>Data set is considered complete for the information presented, as described in the abstract. Users are advised to read the rest of the metadata record carefully for additional details.</complete>
+        <lineage>
+            <procstep>
+                <procdesc>This data is National Park Service boundaries that were created by the Land Resources Division.  Property ownership data is compiled from deeds, plats, surveys, and other source data. Map features from all sources have been adjusted to achieve a ‘best fit’ registration to the ownership parcels. While great care was taken in this process, maps from different sources rarely agree as to the precise location of geographic features. The relative positioning of map features to one another results from combining different map sources without field ‘ground truthing’.</procdesc>
+            </procstep>
+        </lineage>
+    </dataqual>
+    <spdoinfo>
+        <ptvctinf>
+            <sdtsterm>
+                <ptvctcnt>437</ptvctcnt>
+            </sdtsterm>
+        </ptvctinf>
+    </spdoinfo>
+    <eainfo>
+        <overview>
+            <eadetcit>A data dictionary resource of attribute information is accessible at https://doi.org/10.21949/1529046</eadetcit>
+        </overview>
+    </eainfo>
+    <distinfo>
+        <distrib>
+            <cntinfo>
+                <cntorgp>
+                    <cntorg>Bureau of Transportation Statistics</cntorg>
+                </cntorgp>
+                <cntpos>NTAD Program Manager</cntpos>
+                <cntaddr>
+                    <addrtype>mailing and physical</addrtype>
+                    <address>1200 New Jersey Ave. SE</address>
+                    <city>Washington</city>
+                    <state>DC</state>
+                    <postal>20590</postal>
+                    <country>US</country>
+                </cntaddr>
+                <cntvoice>none</cntvoice>
+                <cntemail>ntad@dot.gov</cntemail>
+            </cntinfo>
+        </distrib>
+        <distliab>See access and use constraints information.</distliab>
+        <stdorder>
+            <digform>
+                <digtinfo>
+                    <formname>Open Data Catalog</formname>
+                    <formvern>1.0</formvern>
+                    <formspec>Hosted Downloads</formspec>
+                    <formcont>Web page to view and download dataset. The file download formats available include: ESRI File Geodatabase, Shapefile, GeoPackage, Comma-Seperated Values (CSV), Microsoft Excel, GeoJSON, KML, Feature Collection, and SQLite Geodatabase.</formcont>
+                    <filedec>ZIP</filedec>
+                </digtinfo>
+                <digtopt>
+                    <onlinopt>
+                        <computer>
+                            <networka>
+                                <networkr>https://doi.org/10.21949/1522165</networkr>
+                            </networka>
+                        </computer>
+                    </onlinopt>
+                </digtopt>
+            </digform>
+            <fees>None. No fees are applicable for obtaining the dataset.</fees>
+        </stdorder>
+    </distinfo>
+    <distinfo>
+        <distrib>
+            <cntinfo>
+                <cntorgp>
+                    <cntorg>Bureau of Transportation Statistics</cntorg>
+                </cntorgp>
+                <cntpos>NTAD Program Manager</cntpos>
+                <cntaddr>
+                    <addrtype>mailing and physical</addrtype>
+                    <address>1200 New Jersey Ave. SE</address>
+                    <city>Washington</city>
+                    <state>DC</state>
+                    <postal>20590</postal>
+                    <country>US</country>
+                </cntaddr>
+                <cntvoice>none</cntvoice>
+                <cntemail>ntad@dot.gov</cntemail>
+            </cntinfo>
+        </distrib>
+        <distliab>See access and use constraints information.</distliab>
+        <stdorder>
+            <digform>
+                <digtinfo>
+                    <formname>ArcGIS REST Services Directory Feature Server (WFS)</formname>
+                    <formvern>11.5</formvern>
+                    <formspec>https://ienccloud.us/arcgis/sdk/rest/index.html#/Feature_Service/02ss0000007v000000/</formspec>
+                    <formcont>complies with OGC WFS Map Service for visualizing geospatial information</formcont>
+                </digtinfo>
+                <digtopt>
+                    <onlinopt>
+                        <computer>
+                            <networka>
+                                <networkr>https://doi.org/10.21949/1522167</networkr>
+                            </networka>
+                        </computer>
+                    </onlinopt>
+                </digtopt>
+            </digform>
+            <fees>None. No fees are applicable for obtaining the dataset.</fees>
+        </stdorder>
+    </distinfo>
+    <metainfo>
+        <metd>20260202</metd>
+        <metc>
+            <cntinfo>
+                <cntorgp>
+                    <cntorg>National Park Service (NPS)</cntorg>
+                    <cntper>National Park Service Land Resources Division</cntper>
+                </cntorgp>
+                <cntpos>Chief Cartographer</cntpos>
+                <cntaddr>
+                    <addrtype>mailing and physical</addrtype>
+                    <address>301 S. Howes Street, Suite 208</address>
+                    <city>Fort Collins</city>
+                    <state>CO</state>
+                    <postal>80521</postal>
+                    <country>United States</country>
+                </cntaddr>
+                <cntvoice>202-366-3282</cntvoice>
+                <cntemail>PPFL_LandsNet@nps.gov</cntemail>
+            </cntinfo>
+        </metc>
+        <metstdn>FGDC Content Standard for Digital Geospatial Metadata</metstdn>
+        <metstdv>FGDC-STD-001-1998</metstdv>
+        <mettc>local time</mettc>
+    </metainfo>
+</metadata>
