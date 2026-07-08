@@ -10,59 +10,55 @@ library(sf)
 library(tidyverse)
 
 # ---- Data ---------------------------------------------------------------
+hike <- readr::read_csv(here("data", "mileage_clean.csv")) %>%
+        mutate(date = mdy(date)) %>%
+        arrange(night)
 
-hike <- read_csv(here("data", "mileage_clean.csv"), show_col_types = FALSE) %>%
-  mutate(date = mdy(date)) %>%
-  arrange(night)
+national_forest <- readRDS(here("data", "maps", "boundary_forest", "boundary_forest.rds")) %>%
+                    st_as_sf()
 
-map_washington <- readRDS(here("data", "maps", "Washington.shp", "washington.rds"))
-map_oregon     <- readRDS(here("data", "maps", "Oregon.shp", "oregon.rds"))
-map_norcal     <- readRDS(here("data", "maps", "Northern_California.shp", "norcal.rds"))
-map_sierra     <- readRDS(here("data", "maps", "Central_California.shp", "sierra.rds"))
-map_socal      <- readRDS(here("data", "maps", "Southern_California.shp", "socal.rds"))
+national_park <- readRDS(here("data", "maps", "boundary_park", "boundary_park.rds")) %>%
+                  st_as_sf()
+
+# ---- Hover labels for boundary layers -------------------------------------
+#
+# National forests carry their name in FORESTNAME. National park units
+# carry their name in UNIT_NAME and their designation (National Park,
+# National Monument, National Recreation Area, etc.) in UNIT_TYPE -- the
+# boundary layer isn't limited to "National Park" units, so the type is
+# included in the label for clarity.
+
+national_forest <- national_forest %>%
+  mutate(hover_label = as.character(FORESTNAME))
+
+national_park <- national_park %>%
+  mutate(hover_label = str_glue("{UNIT_NAME} ({UNIT_TYPE})") %>% as.character())
+
+map_washington <- readRDS(here("data", "maps", "Washington", "washington.rds"))
+map_oregon     <- readRDS(here("data", "maps", "Oregon", "oregon.rds"))
+map_norcal     <- readRDS(here("data", "maps", "Northern_California", "norcal.rds"))
+map_sierra     <- readRDS(here("data", "maps", "Central_California", "sierra.rds"))
+map_socal      <- readRDS(here("data", "maps", "Southern_California", "socal.rds"))
 map_full       <- readRDS(here("data", "maps", "full_pct", "full_pct.rds"))
-
 
 # ---- Region assignment ---------------------------------------------------
 #
-# Each night's camp is assigned to whichever regional shapefile its GPS
-# coordinates fall closest to, using a spatial nearest-shapefile join
-# (st_distance) rather than mileage thresholds. This hike was SOBO, and the
-# `mile` column counts distance traveled from the Canadian border -- it is
-# not the standard Halfmile mile-marker convention (measured from the
-# Mexican border), so mile-threshold logic silently misassigns nights.
-# Spatial distance to the actual regional boundary polygons sidesteps that
-# mismatch entirely.
-#
-# Nights with no GPS recorded (e.g. the Ashland zero-day) inherit the
-# region of the nearest night on trail, before and after, in trail order.
+# Regions are assigned by night number rather than by the `mile` column.
+# This hike was SOBO and `mile` counts distance traveled from the Canadian
+# border, which breaks simple mile-threshold logic. Night number, however,
+# moves forward chronologically regardless of hike direction, so fixed
+# night-range thresholds are a reliable (and much simpler) way to assign
+# regions here.
 
 region_levels <- c("Washington", "Oregon", "Northern California", "Sierra", "Southern California")
 
-region_shapes <- list(
-  "Washington"           = map_washington,
-  "Oregon"               = map_oregon,
-  "Northern California"  = map_norcal,
-  "Sierra"               = map_sierra,
-  "Southern California"  = map_socal
-)
-
-hike_pts <- hike %>%
-  filter(!is.na(lat), !is.na(lon)) %>%
-  st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE) %>%
-  st_transform(st_crs(map_washington))
-
-region_distances <- region_shapes %>%
-  map(~ apply(st_distance(hike_pts, .x), 1, min)) %>%
-  as_tibble()
-
-hike_pts <- hike_pts %>%
-  mutate(region = region_distances %>% pmap_chr(~ names(region_distances)[which.min(c(...))]))
-
 hike <- hike %>%
-  left_join(hike_pts %>% st_drop_geometry() %>% select(night, region), by = "night") %>%
-  arrange(night) %>%
-  fill(region, .direction = "downup") %>%
+          mutate(region = case_when(night >= 0   & night <= 35   ~ "Washington",
+                                    night >= 36  & night <= 61   ~ "Oregon",
+                                    night >= 62  & night <= 80   ~ "Northern California",
+                                    night >= 81  & night <= 100  ~ "Sierra",
+                                    night >= 101 & night <= 128  ~ "Southern California",
+                                    TRUE                         ~ "I DON'T KNOW")) %>%
   mutate(region = factor(region, levels = region_levels)) %>%
   group_by(region) %>%
   mutate(
@@ -106,18 +102,18 @@ text_dark      <- "#1e2b23"
 
 sectionUI <- function(id, title, subtitle, cum_label) {
   ns <- NS(id)
-
+  
   div(
     class = "section-panel",
     id = paste0("section-", id),
-
+    
     div(class = "app-header",
         h1(title),
         p(subtitle)
     ),
-
+    
     topNavUI(id),
-
+    
     fluidRow(
       class = "content-row",
       column(
@@ -177,12 +173,12 @@ sectionUI <- function(id, title, subtitle, cum_label) {
 
 sectionServer <- function(id, data, full_trail, cum_cols) {
   moduleServer(id, function(input, output, session) {
-
+    
     data_geo   <- data %>% filter(!is.na(lat), !is.na(lon))
     min_n      <- min(data$night)
     max_n      <- max(data$night)
     trail_bbox <- full_trail %>% st_transform(4326) %>% st_bbox()
-
+    
     output$slider <- renderUI({
       sliderInput(
         session$ns("night"),
@@ -195,22 +191,22 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
         width = "100%"
       )
     })
-
+    
     selectedRow <- reactive({
       req(input$night)
       data %>% filter(night == input$night)
     })
-
+    
     observeEvent(input$prevDay, {
       req(input$night)
       updateSliderInput(session, "night", value = max(min_n, input$night - 1))
     })
-
+    
     observeEvent(input$nextDay, {
       req(input$night)
       updateSliderInput(session, "night", value = min(max_n, input$night + 1))
     })
-
+    
     output$nightHeader <- renderUI({
       row <- selectedRow()
       gps_txt <- if (!is.na(row$lat) && !is.na(row$lon)) {
@@ -223,19 +219,41 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
         div(class = "location-date", sprintf("%s  \u2022  %s", format(row$date, "%B %d, %Y"), gps_txt))
       )
     })
-
+    
     output$dayMiles   <- renderText({ sprintf("%.1f mi", selectedRow()$miles_completed) })
     output$dayAscent  <- renderText({ comma(selectedRow()$ascent) })
     output$dayDescent <- renderText({ comma(selectedRow()$descent) })
-
+    
     output$cumMiles   <- renderText({ comma(selectedRow()[[cum_cols$miles]]) })
     output$cumAscent  <- renderText({ comma(selectedRow()[[cum_cols$ascent]]) })
     output$cumDescent <- renderText({ comma(selectedRow()[[cum_cols$descent]]) })
-
+    
     output$map <- renderLeaflet({
       leaflet(data_geo) %>%
         addProviderTiles(providers$CartoDB.Positron, group = "Map") %>%
         addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
+        addPolygons(
+          data = national_forest,
+          group = "National Forests",
+          color = forest_dark,
+          weight = 1,
+          fillColor = forest_light,
+          fillOpacity = 0.15,
+          label = ~hover_label,
+          labelOptions = labelOptions(direction = "auto", textsize = "13px"),
+          highlightOptions = highlightOptions(weight = 2.5, fillOpacity = 0.35, bringToFront = TRUE)
+        ) %>%
+        addPolygons(
+          data = national_park,
+          group = "National Parks",
+          color = lake_blue,
+          weight = 1,
+          fillColor = sky_blue,
+          fillOpacity = 0.15,
+          label = ~hover_label,
+          labelOptions = labelOptions(direction = "auto", textsize = "13px"),
+          highlightOptions = highlightOptions(weight = 2.5, fillOpacity = 0.35, bringToFront = TRUE)
+        ) %>%
         addPolylines(data = full_trail, color = "red", weight = 2, opacity = 0.85) %>%
         addPolylines(lng = ~lon, lat = ~lat, color = forest_mid, weight = 3, opacity = 0.75) %>%
         addCircleMarkers(
@@ -249,20 +267,22 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
         ) %>%
         addLayersControl(
           baseGroups = c("Map", "Satellite"),
+          overlayGroups = c("National Forests", "National Parks"),
           options = layersControlOptions(collapsed = FALSE),
           position = "topright"
         ) %>%
+        hideGroup(c("National Forests", "National Parks")) %>%
         fitBounds(
           lng1 = trail_bbox[["xmin"]], lat1 = trail_bbox[["ymin"]],
           lng2 = trail_bbox[["xmax"]], lat2 = trail_bbox[["ymax"]]
         )
     })
-
+    
     observeEvent(input$night, {
       row <- selectedRow()
       proxy <- leafletProxy("map")
       proxy %>% clearGroup("selected")
-
+      
       if (!is.na(row$lat) && !is.na(row$lon)) {
         proxy %>%
           addCircleMarkers(
@@ -279,7 +299,7 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
           setView(lng = row$lon, lat = row$lat, zoom = 9)
       }
     })
-
+    
     observeEvent(input$map_marker_click, {
       click <- input$map_marker_click
       if (!is.null(click$id) && !is.na(suppressWarnings(as.numeric(click$id)))) {
@@ -315,6 +335,47 @@ topNavUI <- function(active_id) {
       })
   )
 }
+
+# ---- Per-section box theming -----------------------------------------------
+#
+# The nav_bg / nav_text pair in `sections` already defines a contrast-safe
+# color pair for each region (used for the top nav boxes). The same pair is
+# reused here to color the boxes *inside* each section -- the day-nav
+# buttons, the cumulative-stats box, the slider well, and the stat-card
+# accent stripe -- so every section carries its own identity throughout,
+# not just in the top nav.
+
+section_css <- sections %>%
+  purrr::pmap_chr(function(id, nav_bg, nav_text, ...) {
+    str_glue("
+      #section-{id} .stat-card {{
+        border-left-color: {nav_bg};
+      }}
+      #section-{id} .cumulative-box {{
+        background-color: {nav_bg};
+        color: {nav_text};
+      }}
+      #section-{id} .cumulative-box h4 {{
+        color: {nav_text};
+      }}
+      #section-{id} .day-nav-btn {{
+        background-color: {nav_bg};
+        color: {nav_text};
+      }}
+      #section-{id} .well {{
+        border-top: 4px solid {nav_bg};
+      }}
+      #section-{id} .irs-bar,
+      #section-{id} .irs-bar-edge,
+      #section-{id} .irs-single,
+      #section-{id} .irs-from,
+      #section-{id} .irs-to {{
+        background: {nav_bg} !important;
+        border-color: {nav_bg} !important;
+      }}
+    ")
+  }) %>%
+  paste(collapse = "\n")
 
 subtitle_for <- function(region) {
   if (is.na(region)) {
@@ -359,7 +420,7 @@ map_for_region <- function(region) {
 
 ui <- fluidPage(
   title = "PCT 2025 Thru-Hike",
-
+  
   tags$head(
     tags$style(HTML(sprintf("
       html, body {
@@ -621,9 +682,25 @@ ui <- fluidPage(
                             forest_dark,
                             forest_mid, forest_mid,
                             card_bg
-    )))
+    ))),
+    tags$style(HTML(section_css)),
+    tags$style(HTML(sprintf("
+      .leaflet-tooltip {
+        background-color: %s;
+        color: %s;
+        border: 1px solid %s;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 5px 10px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+      }
+      .leaflet-tooltip-top:before {
+        border-top-color: %s;
+      }
+    ", card_bg, text_dark, forest_mid, forest_mid)))
   ),
-
+  
   # ---- Scrolling sections ----
   div(class = "scroll-container",
       purrr::pmap(sections, function(id, title, region, ...) {
@@ -635,7 +712,7 @@ ui <- fluidPage(
         )
       })
   ),
-
+  
   tags$script(HTML("
     document.addEventListener('DOMContentLoaded', function() {
       var sections = document.querySelectorAll('.section-panel');
