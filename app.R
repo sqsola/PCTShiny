@@ -39,7 +39,7 @@ map_oregon     <- readRDS(here("data", "maps", "Oregon", "oregon.rds"))
 map_norcal     <- readRDS(here("data", "maps", "Northern_California", "norcal.rds"))
 map_sierra     <- readRDS(here("data", "maps", "Central_California", "sierra.rds"))
 map_socal      <- readRDS(here("data", "maps", "Southern_California", "socal.rds"))
-map_full       <- readRDS(here("data", "maps", "full_pct", "full_pct.rds"))
+map_full       <- readRDS(here("data", "maps", "Full_PCT", "full_pct.rds"))
 
 # ---- Region assignment ---------------------------------------------------
 #
