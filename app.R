@@ -14,32 +14,43 @@ hike <- readr::read_csv(here("data", "mileage_clean.csv")) %>%
         mutate(date = mdy(date)) %>%
         arrange(night)
 
+# National forest and national park boundaries come from federal GIS
+# sources published in NAD83 (and NAD83's GRS80-ellipsoid equivalent),
+# not WGS84. leaflet expects layers in EPSG:4326/WGS84 and will warn
+# ("sf layer has inconsistent datum") on every render otherwise, so both
+# layers are explicitly reprojected here, once, at load time.
+
 national_forest <- readRDS(here("data", "maps", "boundary_forest", "boundary_forest.rds")) %>%
-                    st_as_sf()
+                    st_as_sf() %>%
+                    st_transform(4326)
 
 national_park <- readRDS(here("data", "maps", "boundary_park", "boundary_park.rds")) %>%
-                  st_as_sf()
+                  st_as_sf() %>%
+                  st_transform(4326)
 
 # ---- Hover labels for boundary layers -------------------------------------
 #
 # National forests carry their name in FORESTNAME. National park units
-# carry their name in UNIT_NAME and their designation (National Park,
-# National Monument, National Recreation Area, etc.) in UNIT_TYPE -- the
-# boundary layer isn't limited to "National Park" units, so the type is
-# included in the label for clarity.
+# carry their name in UNIT_NAME -- the label shows just the unit name,
+# without its UNIT_TYPE designation (National Park, National Monument,
+# National Recreation Area, etc.).
 
 national_forest <- national_forest %>%
   mutate(hover_label = as.character(FORESTNAME))
 
 national_park <- national_park %>%
-  mutate(hover_label = str_glue("{UNIT_NAME} ({UNIT_TYPE})") %>% as.character())
+  mutate(hover_label = as.character(UNIT_NAME))
 
-map_washington <- readRDS(here("data", "maps", "Washington", "washington.rds"))
-map_oregon     <- readRDS(here("data", "maps", "Oregon", "oregon.rds"))
-map_norcal     <- readRDS(here("data", "maps", "Northern_California", "norcal.rds"))
-map_sierra     <- readRDS(here("data", "maps", "Central_California", "sierra.rds"))
-map_socal      <- readRDS(here("data", "maps", "Southern_California", "socal.rds"))
-map_full       <- readRDS(here("data", "maps", "Full_PCT", "full_pct.rds"))
+# Trail-line layers are reprojected to WGS84 too, defensively, so the same
+# datum warning can't resurface if a future export from the source GIS
+# data ever comes in a different CRS.
+
+map_washington <- readRDS(here("data", "maps", "Washington", "washington.rds")) %>% st_transform(4326)
+map_oregon     <- readRDS(here("data", "maps", "Oregon", "oregon.rds")) %>% st_transform(4326)
+map_norcal     <- readRDS(here("data", "maps", "Northern_California", "norcal.rds")) %>% st_transform(4326)
+map_sierra     <- readRDS(here("data", "maps", "Central_California", "sierra.rds")) %>% st_transform(4326)
+map_socal      <- readRDS(here("data", "maps", "Southern_California", "socal.rds")) %>% st_transform(4326)
+map_full       <- readRDS(here("data", "maps", "Full_PCT", "full_pct.rds")) %>% st_transform(4326)
 
 # ---- Region assignment ---------------------------------------------------
 #
@@ -53,6 +64,7 @@ map_full       <- readRDS(here("data", "maps", "Full_PCT", "full_pct.rds"))
 region_levels <- c("Washington", "Oregon", "Northern California", "Sierra", "Southern California")
 
 hike <- hike %>%
+          mutate(cum_nights = row_number()) %>%
           mutate(region = case_when(night >= 0   & night <= 35   ~ "Washington",
                                     night >= 36  & night <= 61   ~ "Oregon",
                                     night >= 62  & night <= 80   ~ "Northern California",
@@ -62,6 +74,7 @@ hike <- hike %>%
   mutate(region = factor(region, levels = region_levels)) %>%
   group_by(region) %>%
   mutate(
+    region_cum_nights  = row_number(),
     region_cum_miles   = cumsum(replace_na(miles_completed, 0)),
     region_cum_ascent  = cumsum(replace_na(ascent, 0)),
     region_cum_descent = cumsum(replace_na(descent, 0))
@@ -85,6 +98,27 @@ region_summary <- hike %>%
   )
 
 region_stats <- function(r) region_summary %>% filter(region == r)
+
+# ---- Skipped-segment connectors (Full PCT map only) -----------------------
+#
+# Two stretches of trail were skipped on-foot during the hike: a fire
+# closure near Ashland, OR (night 61 to night 62) and a storm near the
+# Sierra (night 100 to night 101). These pairs of nights are not adjacent
+# on the ground, so a dashed connector is drawn between them on the
+# whole-trail map rather than letting the daily track line imply a
+# continuous hiked path through the gap.
+
+skip_night_coords <- function(n) hike %>% filter(night == n) %>% select(lat, lon)
+
+skip_ashland <- bind_cols(
+  skip_night_coords(61)  %>% rename(from_lat = lat, from_lon = lon),
+  skip_night_coords(62)  %>% rename(to_lat = lat, to_lon = lon)
+)
+
+skip_sierra <- bind_cols(
+  skip_night_coords(100) %>% rename(from_lat = lat, from_lon = lon),
+  skip_night_coords(101) %>% rename(to_lat = lat, to_lon = lon)
+)
 
 # ---- Forest color palette ------------------------------------------------
 
@@ -126,6 +160,11 @@ sectionUI <- function(id, title, subtitle, cum_label) {
       column(
         width = 5,
         class = "stats-col",
+        div(class = "info-box",
+            p("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."),
+            p("Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."),
+            p("Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.")
+        ),
         wellPanel(
           uiOutput(ns("slider")),
           fluidRow(
@@ -152,17 +191,21 @@ sectionUI <- function(id, title, subtitle, cum_label) {
         div(class = "cumulative-box",
             h4(cum_label),
             fluidRow(
-              column(4,
+              column(3,
+                     div(style = "font-size: 30px; font-weight: 700;", textOutput(ns("cumNights"), inline = TRUE)),
+                     div(style = "font-size: 14px; opacity: 0.85;", "cumulative nights")
+              ),
+              column(3,
                      div(style = "font-size: 30px; font-weight: 700;", textOutput(ns("cumMiles"), inline = TRUE)),
                      div(style = "font-size: 14px; opacity: 0.85;", "miles hiked")
               ),
-              column(4,
+              column(3,
                      div(style = "font-size: 30px; font-weight: 700;", textOutput(ns("cumAscent"), inline = TRUE)),
-                     div(style = "font-size: 14px; opacity: 0.85;", "ft ascent")
+                     div(style = "font-size: 14px; opacity: 0.85;", "feet ascent")
               ),
-              column(4,
+              column(3,
                      div(style = "font-size: 30px; font-weight: 700;", textOutput(ns("cumDescent"), inline = TRUE)),
-                     div(style = "font-size: 14px; opacity: 0.85;", "ft descent")
+                     div(style = "font-size: 14px; opacity: 0.85;", "feet descent")
               )
             )
         )
@@ -224,12 +267,13 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
     output$dayAscent  <- renderText({ comma(selectedRow()$ascent) })
     output$dayDescent <- renderText({ comma(selectedRow()$descent) })
     
+    output$cumNights  <- renderText({ comma(selectedRow()[[cum_cols$nights]]) })
     output$cumMiles   <- renderText({ comma(selectedRow()[[cum_cols$miles]]) })
     output$cumAscent  <- renderText({ comma(selectedRow()[[cum_cols$ascent]]) })
     output$cumDescent <- renderText({ comma(selectedRow()[[cum_cols$descent]]) })
     
     output$map <- renderLeaflet({
-      leaflet(data_geo) %>%
+      m <- leaflet(data_geo) %>%
         addProviderTiles(providers$CartoDB.Positron, group = "Map") %>%
         addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
         addPolygons(
@@ -264,7 +308,36 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
           fillOpacity = 0.6,
           layerId = ~as.character(night),
           popup = ~sprintf("<b>Night %d</b><br>%s<br>%s", night, name, format(date, "%b %d, %Y"))
-        ) %>%
+        )
+      
+      # The Full PCT map (the "whole" section) is the only view that spans
+      # both skipped stretches of trail, so the dashed skip connectors are
+      # only drawn there -- the individual region maps never span a skip.
+      if (id == "whole") {
+        m <- m %>%
+          addPolylines(
+            lng = c(skip_ashland$from_lon, skip_ashland$to_lon),
+            lat = c(skip_ashland$from_lat, skip_ashland$to_lat),
+            color = forest_dark,
+            weight = 3,
+            opacity = 0.9,
+            dashArray = "8,8",
+            group = "Skipped Segments",
+            label = "Skipped: fire closure near Ashland, OR (night 61 to 62)"
+          ) %>%
+          addPolylines(
+            lng = c(skip_sierra$from_lon, skip_sierra$to_lon),
+            lat = c(skip_sierra$from_lat, skip_sierra$to_lat),
+            color = forest_dark,
+            weight = 3,
+            opacity = 0.9,
+            dashArray = "8,8",
+            group = "Skipped Segments",
+            label = "Skipped: storm near Mammoth Lakes, CA (night 100 to 101)"
+          )
+      }
+      
+      m %>%
         addLayersControl(
           baseGroups = c("Map", "Satellite"),
           overlayGroups = c("National Forests", "National Parks"),
@@ -348,6 +421,19 @@ topNavUI <- function(active_id) {
 section_css <- sections %>%
   purrr::pmap_chr(function(id, nav_bg, nav_text, ...) {
     str_glue("
+      #section-{id} .app-header {{
+        background: {nav_bg};
+      }}
+      #section-{id} .app-header h1 {{
+        color: {nav_text};
+      }}
+      #section-{id} .app-header p {{
+        color: {nav_text};
+        opacity: 0.85;
+      }}
+      #section-{id} .info-box {{
+        border-left-color: {nav_bg};
+      }}
       #section-{id} .stat-card {{
         border-left-color: {nav_bg};
       }}
@@ -379,11 +465,11 @@ section_css <- sections %>%
 
 subtitle_for <- function(region) {
   if (is.na(region)) {
-    sprintf("%s total nights on trail \u2022 %.1f miles \u2022 %s ft ascent \u2022 %s ft descent",
+    sprintf("%s total nights on trail \u2022 %.1f miles \u2022 %s feet ascent \u2022 %s feet descent",
             max_night, total_miles, comma(total_ascent), comma(total_descent))
   } else {
     s <- region_stats(region)
-    sprintf("%d nights on trail \u2022 %.1f miles \u2022 %s ft ascent \u2022 %s ft descent",
+    sprintf("%d nights on trail \u2022 %.1f miles \u2022 %s feet ascent \u2022 %s feet descent",
             s$nights, s$miles, comma(s$ascent), comma(s$descent))
   }
 }
@@ -398,9 +484,9 @@ data_for <- function(region) {
 
 cum_cols_for <- function(region) {
   if (is.na(region)) {
-    list(miles = "cum_miles", ascent = "cum_ascent", descent = "cum_descent")
+    list(nights = "cum_nights", miles = "cum_miles", ascent = "cum_ascent", descent = "cum_descent")
   } else {
-    list(miles = "region_cum_miles", ascent = "region_cum_ascent", descent = "region_cum_descent")
+    list(nights = "region_cum_nights", miles = "region_cum_miles", ascent = "region_cum_ascent", descent = "region_cum_descent")
   }
 }
 
@@ -684,6 +770,25 @@ ui <- fluidPage(
                             card_bg
     ))),
     tags$style(HTML(section_css)),
+    tags$style(HTML(str_glue("
+      .info-box {{
+        background-color: {card_bg};
+        border-left: 5px solid transparent;
+        border-radius: 10px;
+        padding: 18px 20px;
+        margin-bottom: 18px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        font-size: 14px;
+        line-height: 1.55;
+        color: {text_dark};
+      }}
+      .info-box p {{
+        margin: 0 0 10px 0;
+      }}
+      .info-box p:last-child {{
+        margin-bottom: 0;
+      }}
+    "))),
     tags$style(HTML(sprintf("
       .leaflet-tooltip {
         background-color: %s;
