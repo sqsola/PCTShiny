@@ -33,33 +33,24 @@ national_forest <- national_forest %>%
 national_park <- national_park %>%
   mutate(hover_label = as.character(UNIT_NAME))
 
-map_washington <- readRDS(here("data", "maps", "Washington", "washington.rds")) %>% st_transform(4326)
-map_oregon     <- readRDS(here("data", "maps", "Oregon", "oregon.rds")) %>% st_transform(4326)
-map_norcal     <- readRDS(here("data", "maps", "Northern_California", "norcal.rds")) %>% st_transform(4326)
-map_sierra     <- readRDS(here("data", "maps", "Central_California", "sierra.rds")) %>% st_transform(4326)
-map_socal      <- readRDS(here("data", "maps", "Southern_California", "socal.rds")) %>% st_transform(4326)
-map_full       <- readRDS(here("data", "maps", "Full_PCT", "full_pct.rds")) %>% st_transform(4326)
+# The five region sections are now static text/photo panels rather than
+# interactive maps, so only the whole-trail shapefile is still needed.
+map_full <- readRDS(here("data", "maps", "Full_PCT", "full_pct.rds")) %>% st_transform(4326)
 
 # ---- Region assignment ---------------------------------------------------
 region_levels <- c("Washington", "Oregon", "Northern California", "Sierra", "Southern California")
 
 hike <- hike %>%
-          mutate(cum_nights = row_number()) %>%
-          mutate(region = case_when(night >= 0   & night <= 35   ~ "Washington",
-                                    night >= 36  & night <= 61   ~ "Oregon",
-                                    night >= 62  & night <= 80   ~ "Northern California",
-                                    night >= 81  & night <= 100  ~ "Sierra",
-                                    night >= 101 & night <= 128  ~ "Southern California",
-                                    TRUE                         ~ "I DON'T KNOW")) %>%
-  mutate(region = factor(region, levels = region_levels)) %>%
-  group_by(region) %>%
-  mutate(
-    region_cum_nights  = row_number(),
-    region_cum_miles   = cumsum(replace_na(miles_completed, 0)),
-    region_cum_ascent  = cumsum(replace_na(ascent, 0)),
-    region_cum_descent = cumsum(replace_na(descent, 0))
-  ) %>%
-  ungroup()
+  mutate(cum_nights = row_number()) %>%
+  mutate(region = case_when(
+    night >= 0   & night <= 35   ~ "Washington",
+    night >= 36  & night <= 61   ~ "Oregon",
+    night >= 62  & night <= 80   ~ "Northern California",
+    night >= 81  & night <= 100  ~ "Sierra",
+    night >= 101 & night <= 128  ~ "Southern California",
+    TRUE                         ~ "I DON'T KNOW"
+  )) %>%
+  mutate(region = factor(region, levels = region_levels))
 
 total_miles   <- max(hike$cum_miles)
 total_ascent  <- max(hike$cum_ascent)
@@ -100,6 +91,7 @@ forest_light   <- "#7fb693"
 lake_blue      <- "#2b6777"
 sky_blue       <- "#a8dadc"
 bark_brown     <- "#4a3728"
+sierra_blue    <- "#a9d8e8"
 panel_bg       <- "#f4f7f3"
 card_bg        <- "#ffffff"
 text_dark      <- "#1e2b23"
@@ -302,32 +294,31 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
           popup = ~str_glue("<b>{town}</b><br>{state}")
         )
       
-      # The Full PCT map (the "whole" section) is the only view that spans
-      # both skipped stretches of trail, so the dashed skip connectors are
-      # only drawn there -- the individual region maps never span a skip.
-      if (id == "whole") {
-        m <- m %>%
-          addPolylines(
-            lng = c(skip_ashland$from_lon, skip_ashland$to_lon),
-            lat = c(skip_ashland$from_lat, skip_ashland$to_lat),
-            color = forest_dark,
-            weight = 3,
-            opacity = 0.9,
-            dashArray = "8,8",
-            group = "Skipped Segments",
-            label = "Skipped: fire closure near Ashland, OR (night 61 to 62)"
-          ) %>%
-          addPolylines(
-            lng = c(skip_sierra$from_lon, skip_sierra$to_lon),
-            lat = c(skip_sierra$from_lat, skip_sierra$to_lat),
-            color = forest_dark,
-            weight = 3,
-            opacity = 0.9,
-            dashArray = "8,8",
-            group = "Skipped Segments",
-            label = "Skipped: storm near Mammoth Lakes, CA (night 100 to 101)"
-          )
-      }
+      # sectionServer now only ever powers the whole-trail map (the five
+      # region sections are static panels, not maps), and the whole-trail
+      # map is the only view that spans both skipped stretches of trail,
+      # so the dashed skip connectors are always drawn here.
+      m <- m %>%
+        addPolylines(
+          lng = c(skip_ashland$from_lon, skip_ashland$to_lon),
+          lat = c(skip_ashland$from_lat, skip_ashland$to_lat),
+          color = forest_dark,
+          weight = 3,
+          opacity = 0.9,
+          dashArray = "8,8",
+          group = "Skipped Segments",
+          label = "Skipped: fire closure near Ashland, OR (night 61 to 62)"
+        ) %>%
+        addPolylines(
+          lng = c(skip_sierra$from_lon, skip_sierra$to_lon),
+          lat = c(skip_sierra$from_lat, skip_sierra$to_lat),
+          color = forest_dark,
+          weight = 3,
+          opacity = 0.9,
+          dashArray = "8,8",
+          group = "Skipped Segments",
+          label = "Skipped: storm near Mammoth Lakes, CA (night 100 to 101)"
+        )
       
       m %>%
         addLayersControl(
@@ -374,16 +365,74 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
   })
 }
 
+# ---- Region section content (text/photo panels) ---------------------------
+#
+# The five regional sections are now lightweight static panels -- a copy
+# block on one side, a photo placeholder on the other -- rather than full
+# interactive maps. Placeholder copy below will be swapped for real trail
+# narrative, and the image placeholders will be swapped for real photos.
+
+pirate_copy <- list(
+  washington = list(
+    "Avast, ye landlubbers! Shiver me timbers and hoist the mizzen -- this stretch o' trail be treacherous as the North Atlantic in a squall. The crow's nest spied glaciers gleamin' like doubloons in the sun, and the crew scuttled through forests thick as bilge fog.",
+    "Weigh anchor at dawn, hearties, for the trail don't wait for scurvy dogs. Grog was rationed, hardtack was gnawed, and still the crew pressed on toward the Columbia, cutlasses sheathed but spirits high as a topgallant sail."
+  ),
+  oregon = list(
+    "Yo ho ho, the volcanoes of this here territory rise like sirens' isles on the horizon, temptin' every sailor turned hiker to abandon ship and gawk. The Three Sisters loomed like a phantom armada, and the lava fields be sharper than a boatswain's cutlass.",
+    "Landlubbers call it flat and fast, but don't be fooled -- the mosquitoes swarmed thicker than a mutinous crew, and the miles stretched on like the doldrums. Still, the crater lakes shimmered bluer than any treasure chest o' sapphires."
+  ),
+  norcal = list(
+    "Shiver me timbers, this be the stretch where many a crew loses heart -- the Cascades give way to endless green swells, rollin' like the open sea with nary a landmark in sight. Old Black Butte watched over the voyage like a one-eyed captain.",
+    "The crew plundered past Castle Crags, jagged as a kraken's back, and forded rivers cold enough to freeze a pirate's grog. Aye, the fires o' summers past left their mark, but the trail pressed on, unbowed."
+  ),
+  sierra = list(
+    "Batten down the hatches, for here the trail climbs higher than any crow's nest -- granite peaks stand like the masts of a ghost fleet, and snowfields glisten like sails catchin' the sun. Whitney herself towers over all, queen of this rocky armada.",
+    "The passes be steep as a ship's ladder in a storm, and the alpine lakes run clearer than the finest spyglass. Every hearty aboard agreed: no chart could capture the grandeur of these granite shores."
+  ),
+  socal = list(
+    "Arrr, the desert be a different sea entirely -- sand instead o' swells, and the sun beatin' down like a merciless quartermaster. Water caches became more precious than any buried chest o' gold, hidden along the parched trail.",
+    "The crew sailed on past Joshua trees standin' like masts of wrecked galleons, and the San Jacintos rose up as the final watch before Idyllwild's welcomin' shore. The voyage's end drew near, and every scurvy dog aboard felt the pull of home port."
+  )
+)
+
+regionSectionUI <- function(id, title, subtitle, nav_bg, text_side, copy) {
+  text_panel <- div(
+    class = "region-text-panel",
+    h2(title),
+    purrr::map(copy, ~ p(.x))
+  )
+
+  image_panel <- div(
+    class = "region-image-panel",
+    div(
+      class = "region-image-placeholder",
+      style = sprintf("background-color: %s;", nav_bg),
+      icon("image"),
+      span("Photo coming soon")
+    )
+  )
+
+  panels <- if (text_side == "left") list(text_panel, image_panel) else list(image_panel, text_panel)
+
+  div(
+    class = "section-panel",
+    id = paste0("section-", id),
+    div(class = "app-header", h1(title), p(subtitle)),
+    topNavUI(id),
+    div(class = "region-split-row", panels)
+  )
+}
+
 # ---- Section definitions --------------------------------------------------
 
 sections <- tibble::tribble(
-  ~id,          ~title,                                    ~region,                ~nav_bg,        ~nav_text,      ~nav_icon,
-  "whole",      "Pacific Crest Trail \u2014 2025 Thru-Hike", NA_character_,          forest_mid,     "#f4f7f3",      "route",
-  "washington", "Washington",                                "Washington",           forest_light,   "#1b3a2b",      "mountain",
-  "oregon",     "Oregon",                                    "Oregon",               "#2a211d",      "#f4f7f3",      "tree",
-  "norcal",     "Northern California",                       "Northern California",  "#c1502e",      "#f4f7f3",      "water",
-  "sierra",     "Sierra",                                    "Sierra",               "#dbeef4",      "#1b3a2b",      "snowflake",
-  "socal",      "Southern California",                       "Southern California",  bark_brown,     "#f4f7f3",      "sun"
+  ~id,          ~title,                                    ~region,                ~nav_bg,        ~nav_text,      ~nav_icon,   ~text_side,
+  "whole",      "Pacific Crest Trail \u2014 2025 Thru-Hike", NA_character_,          forest_mid,     "#f4f7f3",      "route",     NA_character_,
+  "washington", "Washington",                                "Washington",           forest_light,   "#1b3a2b",      "mountain",  "left",
+  "oregon",     "Oregon",                                    "Oregon",               "#2a211d",      "#f4f7f3",      "tree",      "right",
+  "norcal",     "Northern California",                       "Northern California",  "#c1502e",      "#f4f7f3",      "water",     "left",
+  "sierra",     "Sierra",                                    "Sierra",               sierra_blue,    "#1b3a2b",      "snowflake", "right",
+  "socal",      "Southern California",                       "Southern California",  bark_brown,     "#f4f7f3",      "sun",       "left"
 )
 
 topNavUI <- function(active_id) {
@@ -412,7 +461,7 @@ topNavUI <- function(active_id) {
 
 section_css <- sections %>%
   purrr::pmap_chr(function(id, nav_bg, nav_text, ...) {
-    str_glue("
+    header_css <- str_glue("
       #section-{id} .app-header {{
         background: {nav_bg};
       }}
@@ -423,35 +472,51 @@ section_css <- sections %>%
         color: {nav_text};
         opacity: 0.85;
       }}
-      #section-{id} .info-box {{
-        border-left-color: {nav_bg};
-      }}
-      #section-{id} .stat-card {{
-        border-left-color: {nav_bg};
-      }}
-      #section-{id} .cumulative-box {{
-        background-color: {nav_bg};
-        color: {nav_text};
-      }}
-      #section-{id} .cumulative-box h4 {{
-        color: {nav_text};
-      }}
-      #section-{id} .day-nav-btn {{
-        background-color: {nav_bg};
-        color: {nav_text};
-      }}
-      #section-{id} .well {{
-        border-top: 4px solid {nav_bg};
-      }}
-      #section-{id} .irs-bar,
-      #section-{id} .irs-bar-edge,
-      #section-{id} .irs-single,
-      #section-{id} .irs-from,
-      #section-{id} .irs-to {{
-        background: {nav_bg} !important;
-        border-color: {nav_bg} !important;
-      }}
     ")
+
+    # The whole-trail section keeps its full interactive layout (info box,
+    # stat cards, cumulative box, slider); the five region sections are now
+    # plain text/photo panels, so they only need their text panel themed.
+    extra_css <- if (id == "whole") {
+      str_glue("
+        #section-{id} .info-box {{
+          border-left-color: {nav_bg};
+        }}
+        #section-{id} .stat-card {{
+          border-left-color: {nav_bg};
+        }}
+        #section-{id} .cumulative-box {{
+          background-color: {nav_bg};
+          color: {nav_text};
+        }}
+        #section-{id} .cumulative-box h4 {{
+          color: {nav_text};
+        }}
+        #section-{id} .day-nav-btn {{
+          background-color: {nav_bg};
+          color: {nav_text};
+        }}
+        #section-{id} .well {{
+          border-top: 4px solid {nav_bg};
+        }}
+        #section-{id} .irs-bar,
+        #section-{id} .irs-bar-edge,
+        #section-{id} .irs-single,
+        #section-{id} .irs-from,
+        #section-{id} .irs-to {{
+          background: {nav_bg} !important;
+          border-color: {nav_bg} !important;
+        }}
+      ")
+    } else {
+      str_glue("
+        #section-{id} .region-text-panel {{
+          border-left-color: {nav_bg};
+        }}
+      ")
+    }
+
+    paste0(header_css, extra_css)
   }) %>%
   paste(collapse = "\n")
 
@@ -464,34 +529,6 @@ subtitle_for <- function(region) {
     sprintf("%d nights on trail \u2022 %.1f miles \u2022 %s feet ascent \u2022 %s feet descent",
             s$nights, s$miles, comma(s$ascent), comma(s$descent))
   }
-}
-
-cum_label_for <- function(region) {
-  if (is.na(region)) "Cumulative through this night" else sprintf("Cumulative in %s through this night", region)
-}
-
-data_for <- function(region) {
-  if (is.na(region)) hike else hike %>% filter(region == !!region)
-}
-
-cum_cols_for <- function(region) {
-  if (is.na(region)) {
-    list(nights = "cum_nights", miles = "cum_miles", ascent = "cum_ascent", descent = "cum_descent")
-  } else {
-    list(nights = "region_cum_nights", miles = "region_cum_miles", ascent = "region_cum_ascent", descent = "region_cum_descent")
-  }
-}
-
-region_maps <- list(
-  "Washington"           = map_washington,
-  "Oregon"               = map_oregon,
-  "Northern California"  = map_norcal,
-  "Sierra"               = map_sierra,
-  "Southern California"  = map_socal
-)
-
-map_for_region <- function(region) {
-  if (is.na(region)) map_full else pluck(region_maps, region, .default = map_full)
 }
 
 # ---- UI -------------------------------------------------------------------
@@ -781,6 +818,60 @@ ui <- fluidPage(
         margin-bottom: 0;
       }}
     "))),
+    tags$style(HTML(str_glue("
+      .region-split-row {{
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex !important;
+        gap: 28px;
+      }}
+      .region-text-panel {{
+        flex: 1 1 50%;
+        min-width: 0;
+        overflow-y: auto;
+        background-color: {card_bg};
+        border-left: 6px solid transparent;
+        border-radius: 12px;
+        padding: 36px 40px;
+        box-shadow: 0 1px 8px rgba(0,0,0,0.1);
+        font-size: 16px;
+        line-height: 1.7;
+        color: {text_dark};
+      }}
+      .region-text-panel h2 {{
+        margin-top: 0;
+        font-size: 26px;
+      }}
+      .region-text-panel p {{
+        margin: 0 0 14px 0;
+      }}
+      .region-text-panel p:last-child {{
+        margin-bottom: 0;
+      }}
+      .region-image-panel {{
+        flex: 1 1 50%;
+        min-width: 0;
+        display: flex;
+      }}
+      .region-image-placeholder {{
+        flex: 1 1 auto;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        color: rgba(255,255,255,0.85);
+        font-size: 18px;
+        font-weight: 600;
+        opacity: 0.55;
+      }}
+      .region-image-placeholder svg {{
+        font-size: 52px;
+        height: 1em;
+        width: 1em;
+      }}
+    "))),
     tags$style(HTML(sprintf("
       .leaflet-tooltip {
         background-color: %s;
@@ -799,14 +890,27 @@ ui <- fluidPage(
   ),
   
   # ---- Scrolling sections ----
+  # The whole-trail section keeps the full interactive map/slider layout;
+  # the five region sections are now static alternating text/photo panels.
   div(class = "scroll-container",
-      purrr::pmap(sections, function(id, title, region, ...) {
-        sectionUI(
-          id        = id,
-          title     = title,
-          subtitle  = subtitle_for(region),
-          cum_label = cum_label_for(region)
-        )
+      purrr::pmap(sections, function(id, title, region, nav_bg, text_side, ...) {
+        if (id == "whole") {
+          sectionUI(
+            id        = id,
+            title     = title,
+            subtitle  = subtitle_for(region),
+            cum_label = "Cumulative through this night"
+          )
+        } else {
+          regionSectionUI(
+            id        = id,
+            title     = title,
+            subtitle  = subtitle_for(region),
+            nav_bg    = nav_bg,
+            text_side = text_side,
+            copy      = pirate_copy[[id]]
+          )
+        }
       })
   ),
   
@@ -842,16 +946,16 @@ ui <- fluidPage(
 )
 
 # ---- Server -----------------------------------------------------------
+# Only the whole-trail section is interactive now, so it's the only one
+# that needs a server module.
 
 server <- function(input, output, session) {
-  purrr::pwalk(sections, function(id, title, region, ...) {
-    sectionServer(
-      id         = id,
-      data       = data_for(region),
-      full_trail = map_for_region(region),
-      cum_cols   = cum_cols_for(region)
-    )
-  })
+  sectionServer(
+    id         = "whole",
+    data       = hike,
+    full_trail = map_full,
+    cum_cols   = list(nights = "cum_nights", miles = "cum_miles", ascent = "cum_ascent", descent = "cum_descent")
+  )
 }
 
 shinyApp(ui, server)
