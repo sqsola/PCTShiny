@@ -23,6 +23,8 @@ national_park <- readRDS(here("data", "maps", "boundary_park", "boundary_park.rd
                   st_as_sf() %>%
                   st_transform(4326)
 
+pct_towns <- readRDS(here("data", "maps", "pct_towns.rds"))
+
 # ---- Hover labels for boundary layers -------------------------------------
 
 national_forest <- national_forest %>%
@@ -101,6 +103,17 @@ bark_brown     <- "#4a3728"
 panel_bg       <- "#f4f7f3"
 card_bg        <- "#ffffff"
 text_dark      <- "#1e2b23"
+
+# ---- Trail town marker icon ------------------------------------------------
+# Defined once and reused across every section's map (towns aren't confined
+# to a single region, so this layer is added identically to all 6 maps).
+
+town_icon <- awesomeIcons(
+  icon      = "home",
+  library   = "fa",
+  markerColor = "orange",
+  iconColor   = "white"
+)
 
 # ---- Reusable section module ---------------------------------------------
 
@@ -278,6 +291,15 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
           fillOpacity = 0.6,
           layerId = ~as.character(night),
           popup = ~sprintf("<b>Night %d</b><br>%s<br>%s", night, name, format(date, "%b %d, %Y"))
+        ) %>%
+        addAwesomeMarkers(
+          data = pct_towns,
+          lng = ~longitude, lat = ~latitude,
+          icon = town_icon,
+          group = "Trail Towns",
+          label = ~str_glue("{town}, {state}"),
+          labelOptions = labelOptions(direction = "auto", textsize = "13px"),
+          popup = ~str_glue("<b>{town}</b><br>{state}")
         )
       
       # The Full PCT map (the "whole" section) is the only view that spans
@@ -310,7 +332,7 @@ sectionServer <- function(id, data, full_trail, cum_cols) {
       m %>%
         addLayersControl(
           baseGroups = c("Map", "Satellite"),
-          overlayGroups = c("National Forests", "National Parks"),
+          overlayGroups = c("National Forests", "National Parks", "Trail Towns"),
           options = layersControlOptions(collapsed = FALSE),
           position = "topright"
         ) %>%
