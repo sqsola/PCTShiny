@@ -7,18 +7,13 @@ library(leaflet)
 library(scales)
 library(here)
 library(sf)
+library(readr)
 library(tidyverse)
 
 # ---- Data ---------------------------------------------------------------
-hike <- readr::read_csv(here("data", "mileage_clean.csv")) %>%
+hike <- read_csv(here("data", "mileage_clean.csv")) %>%
         mutate(date = mdy(date)) %>%
         arrange(night)
-
-# National forest and national park boundaries come from federal GIS
-# sources published in NAD83 (and NAD83's GRS80-ellipsoid equivalent),
-# not WGS84. leaflet expects layers in EPSG:4326/WGS84 and will warn
-# ("sf layer has inconsistent datum") on every render otherwise, so both
-# layers are explicitly reprojected here, once, at load time.
 
 national_forest <- readRDS(here("data", "maps", "boundary_forest", "boundary_forest.rds")) %>%
                     st_as_sf() %>%
@@ -29,21 +24,12 @@ national_park <- readRDS(here("data", "maps", "boundary_park", "boundary_park.rd
                   st_transform(4326)
 
 # ---- Hover labels for boundary layers -------------------------------------
-#
-# National forests carry their name in FORESTNAME. National park units
-# carry their name in UNIT_NAME -- the label shows just the unit name,
-# without its UNIT_TYPE designation (National Park, National Monument,
-# National Recreation Area, etc.).
 
 national_forest <- national_forest %>%
   mutate(hover_label = as.character(FORESTNAME))
 
 national_park <- national_park %>%
   mutate(hover_label = as.character(UNIT_NAME))
-
-# Trail-line layers are reprojected to WGS84 too, defensively, so the same
-# datum warning can't resurface if a future export from the source GIS
-# data ever comes in a different CRS.
 
 map_washington <- readRDS(here("data", "maps", "Washington", "washington.rds")) %>% st_transform(4326)
 map_oregon     <- readRDS(here("data", "maps", "Oregon", "oregon.rds")) %>% st_transform(4326)
@@ -53,14 +39,6 @@ map_socal      <- readRDS(here("data", "maps", "Southern_California", "socal.rds
 map_full       <- readRDS(here("data", "maps", "Full_PCT", "full_pct.rds")) %>% st_transform(4326)
 
 # ---- Region assignment ---------------------------------------------------
-#
-# Regions are assigned by night number rather than by the `mile` column.
-# This hike was SOBO and `mile` counts distance traveled from the Canadian
-# border, which breaks simple mile-threshold logic. Night number, however,
-# moves forward chronologically regardless of hike direction, so fixed
-# night-range thresholds are a reliable (and much simpler) way to assign
-# regions here.
-
 region_levels <- c("Washington", "Oregon", "Northern California", "Sierra", "Southern California")
 
 hike <- hike %>%
@@ -100,14 +78,6 @@ region_summary <- hike %>%
 region_stats <- function(r) region_summary %>% filter(region == r)
 
 # ---- Skipped-segment connectors (Full PCT map only) -----------------------
-#
-# Two stretches of trail were skipped on-foot during the hike: a fire
-# closure near Ashland, OR (night 61 to night 62) and a storm near the
-# Sierra (night 100 to night 101). These pairs of nights are not adjacent
-# on the ground, so a dashed connector is drawn between them on the
-# whole-trail map rather than letting the daily track line imply a
-# continuous hiked path through the gap.
-
 skip_night_coords <- function(n) hike %>% filter(night == n) %>% select(lat, lon)
 
 skip_ashland <- bind_cols(
